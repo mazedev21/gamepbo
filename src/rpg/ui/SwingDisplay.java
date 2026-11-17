@@ -8,10 +8,7 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.util.Random;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -37,24 +34,15 @@ import rpg.model.Monster;
 import rpg.model.Warrior;
 import rpg.service.BattleService;
 import rpg.service.SettingsService;
+import rpg.ui.AvatarPanel.ActionEffect;
+import rpg.ui.AvatarPanel.AvatarType;
+import rpg.ui.SkillIcon.IconType;
 
 /**
  * Kelas {@code SwingDisplay} mengimplementasikan interface {@link BattleDisplay}
- * menggunakan komponen standar Java Swing ({@code javax.swing}) tanpa pustaka eksternal.
- *
- * <p><b>Pemenuhan Kebutuhan Fungsional & Nonfungsional:</b></p>
- * <ul>
- *   <li><b>KF-01:</b> Menampilkan judul game, narasi pembukaan, dan menu utama.</li>
- *   <li><b>KF-02:</b> Memungkinkan pemain memilih karakter Warrior atau Mage beserta statistiknya.</li>
- *   <li><b>KF-03:</b> Membangkitkan monster dengan statistik acak sesuai tingkat kesulitan.</li>
- *   <li><b>KF-04 & KF-05:</b> Mengatur giliran dan menyediakan tombol Serangan Biasa & Skill Spesial.</li>
- *   <li><b>KF-07:</b> Menampilkan bar HP grafis ({@link JProgressBar}) dan pesan aksi tiap giliran.</li>
- *   <li><b>KF-09 & KF-10:</b> Menampilkan narasi akhir cerita komedi (menang/kalah) dan ringkasan pertarungan.</li>
- *   <li><b>KF-11 & KF-12:</b> Menyediakan panel Pengaturan Tingkat Kesulitan dan tombol Reset ke Bawaan.</li>
- *   <li><b>KF-13:</b> Menyediakan tombol Main Ulang atau Keluar setelah pertarungan selesai.</li>
- *   <li><b>KNF-01 s.d. KNF-05:</b> Responsif, intuitif, menangani input tidak valid dengan aman,
- *       dan berjalan murni di atas Java Swing JDK standar pada Linux Ubuntu.</li>
- * </ul>
+ * menggunakan komponen standar Java Swing ({@code javax.swing}) dan grafik
+ * vektor {@code java.awt.Graphics2D} (melalui {@link AvatarPanel} dan {@link SkillIcon})
+ * tanpa pustaka eksternal.
  */
 public class SwingDisplay implements BattleDisplay {
 
@@ -101,10 +89,12 @@ public class SwingDisplay implements BattleDisplay {
     private Character currentPlayer;
     private Character currentEnemy;
 
+    private AvatarPanel playerAvatarPanel;
     private JLabel playerNameLabel;
     private JLabel playerStatsLabel;
     private JProgressBar playerHpBar;
 
+    private AvatarPanel enemyAvatarPanel;
     private JLabel enemyNameLabel;
     private JLabel enemyStatsLabel;
     private JProgressBar enemyHpBar;
@@ -125,11 +115,6 @@ public class SwingDisplay implements BattleDisplay {
         this.settingsService = settingsService;
     }
 
-    /**
-     * Menghubungkan {@link BattleService} ke tampilan GUI ini.
-     *
-     * @param battleService service pertarungan
-     */
     public void setBattleService(BattleService battleService) {
         if (battleService == null) {
             throw new IllegalArgumentException("BattleService tidak boleh null");
@@ -137,14 +122,11 @@ public class SwingDisplay implements BattleDisplay {
         this.battleService = battleService;
     }
 
-    /**
-     * Membangun dan menampilkan jendela utama aplikasi GUI Java Swing.
-     */
     public void launchGui() {
         frame = new JFrame("Hero's Regret: Rescue Gone Wrong — RPG Turn-Based PBO (v3)");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(900, 680);
-        frame.setMinimumSize(new Dimension(820, 620));
+        frame.setSize(940, 740);
+        frame.setMinimumSize(new Dimension(860, 680));
         frame.setLocationRelativeTo(null);
 
         cardLayout = new CardLayout();
@@ -167,9 +149,9 @@ public class SwingDisplay implements BattleDisplay {
     // =========================================================================
 
     private JPanel buildMainMenuPanel() {
-        JPanel panel = new JPanel(new BorderLayout(20, 20));
+        JPanel panel = new JPanel(new BorderLayout(18, 18));
         panel.setBackground(BG_DARK);
-        panel.setBorder(new EmptyBorder(30, 45, 30, 45));
+        panel.setBorder(new EmptyBorder(24, 40, 24, 40));
 
         // Header Judul
         JPanel headerPanel = new JPanel();
@@ -192,12 +174,29 @@ public class SwingDisplay implements BattleDisplay {
         menuDifficultyBadge.setForeground(ACCENT_GREEN);
 
         headerPanel.add(subtitleTop);
-        headerPanel.add(Box.createVerticalStrut(8));
+        headerPanel.add(Box.createVerticalStrut(6));
         headerPanel.add(titleLabel);
-        headerPanel.add(Box.createVerticalStrut(8));
+        headerPanel.add(Box.createVerticalStrut(6));
         headerPanel.add(menuDifficultyBadge);
 
-        // Narasi Pembukaan (KF-01)
+        // Panel Tengah: Showcase Grafik 3 Karakter + Narasi Pembukaan
+        JPanel centerContent = new JPanel(new BorderLayout(16, 16));
+        centerContent.setBackground(BG_DARK);
+
+        JPanel previewHeroesRow = new JPanel(new GridLayout(1, 3, 16, 0));
+        previewHeroesRow.setBackground(BG_DARK);
+
+        AvatarPanel pWarrior = new AvatarPanel(AvatarType.WARRIOR, 180, 145);
+        pWarrior.setCaptionText("WARRIOR — Power Strike");
+        AvatarPanel pMage = new AvatarPanel(AvatarType.MAGE, 180, 145);
+        pMage.setCaptionText("MAGE — Fireball");
+        AvatarPanel pMonster = new AvatarPanel(AvatarType.MONSTER, 180, 145);
+        pMonster.setCaptionText("MONSTER — Monster Smash");
+
+        previewHeroesRow.add(pWarrior);
+        previewHeroesRow.add(pMage);
+        previewHeroesRow.add(pMonster);
+
         JTextArea openingNarration = new JTextArea(
             "NARASI PEMBUKAAN:\n\n"
             + "Putri kerajaan telah diculik dan dikurung di menara Kastil Kelam yang dijaga oleh monster ganas!\n"
@@ -211,23 +210,23 @@ public class SwingDisplay implements BattleDisplay {
         openingNarration.setEditable(false);
         openingNarration.setLineWrap(true);
         openingNarration.setWrapStyleWord(true);
-        openingNarration.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        openingNarration.setFont(new Font("SansSerif", Font.PLAIN, 14));
         openingNarration.setBackground(BG_PANEL);
         openingNarration.setForeground(TEXT_LIGHT);
         openingNarration.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(74, 85, 104), 1),
-            new EmptyBorder(20, 24, 20, 24)
+            new EmptyBorder(16, 20, 16, 20)
         ));
+
+        centerContent.add(previewHeroesRow, BorderLayout.NORTH);
+        centerContent.add(openingNarration, BorderLayout.CENTER);
 
         // Tombol Menu Utama
         JPanel buttonPanel = new JPanel(new GridLayout(1, 3, 18, 0));
         buttonPanel.setBackground(BG_DARK);
-        buttonPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
 
         JButton btnStart = createStyledButton("Mulai Permainan", ACCENT_GREEN, Color.WHITE);
-        btnStart.addActionListener(e -> {
-            cardLayout.show(mainContainer, CARD_CHARACTER_SELECT);
-        });
+        btnStart.addActionListener(e -> cardLayout.show(mainContainer, CARD_CHARACTER_SELECT));
 
         JButton btnSettings = createStyledButton("Pengaturan Kesulitan", ACCENT_BLUE, Color.WHITE);
         btnSettings.addActionListener(e -> {
@@ -255,7 +254,7 @@ public class SwingDisplay implements BattleDisplay {
         buttonPanel.add(btnExit);
 
         panel.add(headerPanel, BorderLayout.NORTH);
-        panel.add(openingNarration, BorderLayout.CENTER);
+        panel.add(centerContent, BorderLayout.CENTER);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
@@ -390,19 +389,19 @@ public class SwingDisplay implements BattleDisplay {
     }
 
     // =========================================================================
-    // 3. PANEL PEMILIHAN KARAKTER (KF-02)
+    // 3. PANEL PEMILIHAN KARAKTER DENGAN GRAFIK AVATAR & SKILL ICON (KF-02)
     // =========================================================================
 
     private JPanel buildCharacterSelectPanel() {
-        JPanel panel = new JPanel(new BorderLayout(18, 18));
+        JPanel panel = new JPanel(new BorderLayout(16, 16));
         panel.setBackground(BG_DARK);
-        panel.setBorder(new EmptyBorder(25, 40, 25, 40));
+        panel.setBorder(new EmptyBorder(22, 36, 22, 36));
 
         JLabel title = new JLabel("PILIH KARAKTER PAHLAWANMU (KF-02)", SwingConstants.CENTER);
         title.setFont(new Font("SansSerif", Font.BOLD, 22));
         title.setForeground(ACCENT_GOLD);
 
-        JPanel centerPanel = new JPanel(new BorderLayout(15, 15));
+        JPanel centerPanel = new JPanel(new BorderLayout(14, 14));
         centerPanel.setBackground(BG_DARK);
 
         // Input nama pahlawan
@@ -425,7 +424,7 @@ public class SwingDisplay implements BattleDisplay {
         nameInputPanel.add(heroNameField);
         nameInputPanel.add(nameHint);
 
-        // Kartu pilihan Warrior vs Mage
+        // Kartu pilihan Warrior vs Mage dilengkapi grafik AvatarPanel + SkillIcon
         JPanel cardsGrid = new JPanel(new GridLayout(1, 2, 20, 0));
         cardsGrid.setBackground(BG_DARK);
 
@@ -438,24 +437,26 @@ public class SwingDisplay implements BattleDisplay {
         JPanel warriorCard = buildRoleCard(
             "WARRIOR (Ksatria Pedang)",
             ACCENT_BLUE,
-            "• HP Maksimum : 140 HP (Ketahanan Tinggi)\n"
+            AvatarType.WARRIOR,
+            IconType.POWER_STRIKE,
+            "Skill Spesial: Power Strike (2 x Attack = 40 Damage)",
+            "• HP Maksimum     : 140 HP (Ketahanan Tinggi)\n"
             + "• Kekuatan Serang : 20 Attack\n"
-            + "• Skill Spesial : Power Strike\n"
-            + "• Efek Skill : 2 x Attack (40 Damage)\n\n"
-            + "Penerapan PBO:\n"
-            + "Subkelas Character yang memasang objek PowerStrike (implements Skill).",
+            + "• Gaya Bertarung  : Tebasan pedang & perisai baja\n"
+            + "• Penerapan PBO   : Warrior extends Character + PowerStrike",
             rbWarrior
         );
 
         JPanel mageCard = buildRoleCard(
             "MAGE (Penyihir Elemen)",
             ACCENT_PURPLE,
-            "• HP Maksimum : 100 HP (Ketahanan Rendah)\n"
+            AvatarType.MAGE,
+            IconType.FIREBALL,
+            "Skill Spesial: Fireball (2 x Attack - 6 = 50 Damage)",
+            "• HP Maksimum     : 100 HP (Ketahanan Rendah)\n"
             + "• Kekuatan Serang : 28 Attack (Serangan Kuat)\n"
-            + "• Skill Spesial : Fireball\n"
-            + "• Efek Skill : (2 x Attack) - 6 (50 Damage)\n\n"
-            + "Penerapan PBO:\n"
-            + "Subkelas Character yang memasang objek Fireball (implements Skill).",
+            + "• Gaya Bertarung  : Ledakan bola api & tongkat kristal\n"
+            + "• Penerapan PBO   : Mage extends Character + Fireball",
             rbMage
         );
 
@@ -485,25 +486,55 @@ public class SwingDisplay implements BattleDisplay {
         return panel;
     }
 
-    private JPanel buildRoleCard(String header, Color badgeColor, String details, JRadioButton radioBtn) {
+    private JPanel buildRoleCard(
+        String header,
+        Color badgeColor,
+        AvatarType avatarType,
+        IconType skillIconType,
+        String skillBannerText,
+        String details,
+        JRadioButton radioBtn
+    ) {
         JPanel card = new JPanel(new BorderLayout(10, 10));
         card.setBackground(BG_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(badgeColor, 2),
-            new EmptyBorder(16, 18, 16, 18)
+            new EmptyBorder(14, 16, 14, 16)
         ));
 
-        JLabel title = new JLabel(header);
+        JLabel title = new JLabel(header, SwingConstants.CENTER);
         title.setFont(new Font("SansSerif", Font.BOLD, 17));
         title.setForeground(badgeColor);
+
+        // Panel tengah berisi Avatar Grafik Vektor + Badge Skill Icon + Deskripsi Statistik
+        JPanel body = new JPanel(new BorderLayout(8, 8));
+        body.setBackground(BG_CARD);
+
+        AvatarPanel avatarPreview = new AvatarPanel(avatarType, 180, 145);
+
+        JPanel infoBox = new JPanel(new BorderLayout(6, 6));
+        infoBox.setBackground(BG_CARD);
+
+        JLabel skillBadge = new JLabel(skillBannerText, new SkillIcon(skillIconType, 26), SwingConstants.LEFT);
+        skillBadge.setFont(new Font("SansSerif", Font.BOLD, 13));
+        skillBadge.setForeground(ACCENT_GOLD);
+        skillBadge.setOpaque(true);
+        skillBadge.setBackground(BG_PANEL);
+        skillBadge.setBorder(new EmptyBorder(6, 10, 6, 10));
 
         JTextArea desc = new JTextArea(details);
         desc.setEditable(false);
         desc.setLineWrap(true);
         desc.setWrapStyleWord(true);
-        desc.setFont(new Font("Monospaced", Font.PLAIN, 13));
+        desc.setFont(new Font("Monospaced", Font.PLAIN, 12));
         desc.setBackground(BG_CARD);
         desc.setForeground(TEXT_LIGHT);
+
+        infoBox.add(skillBadge, BorderLayout.NORTH);
+        infoBox.add(desc, BorderLayout.CENTER);
+
+        body.add(avatarPreview, BorderLayout.NORTH);
+        body.add(infoBox, BorderLayout.CENTER);
 
         radioBtn.setFont(new Font("SansSerif", Font.BOLD, 15));
         radioBtn.setBackground(BG_PANEL);
@@ -512,30 +543,35 @@ public class SwingDisplay implements BattleDisplay {
         radioBtn.setBorder(new EmptyBorder(8, 12, 8, 12));
 
         card.add(title, BorderLayout.NORTH);
-        card.add(desc, BorderLayout.CENTER);
+        card.add(body, BorderLayout.CENTER);
         card.add(radioBtn, BorderLayout.SOUTH);
         return card;
     }
 
     // =========================================================================
-    // 4. PANEL ARENA PERTARUNGAN & RINGKASAN (KF-03 s.d. KF-10, KF-13)
+    // 4. PANEL ARENA PERTARUNGAN DENGAN GRAFIK AVATAR & EFEK SKILL (KF-03 s.d. KF-13)
     // =========================================================================
 
     private JPanel buildBattlePanel() {
-        JPanel panel = new JPanel(new BorderLayout(14, 14));
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
         panel.setBackground(BG_DARK);
-        panel.setBorder(new EmptyBorder(20, 30, 20, 30));
+        panel.setBorder(new EmptyBorder(16, 26, 16, 26));
 
-        // Bagian Atas: Kartu Status Pemain & Monster dengan JProgressBar HP (KF-07)
-        JPanel combatantsPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        // Bagian Atas: Arena Visual Pahlawan vs Monster (AvatarPanel + Status + JProgressBar HP)
+        JPanel combatantsPanel = new JPanel(new GridLayout(1, 2, 18, 0));
         combatantsPanel.setBackground(BG_DARK);
 
-        // Panel Status Pemain
-        JPanel playerCard = new JPanel(new GridLayout(3, 1, 4, 4));
+        // Kartu Pahlawan Pemain
+        JPanel playerCard = new JPanel(new BorderLayout(12, 8));
         playerCard.setBackground(BG_PANEL);
-        playerCard.setBorder( createTitledBorder("PAHLAWAN PEMAIN", ACCENT_BLUE) );
+        playerCard.setBorder(createTitledBorder("PAHLAWAN PEMAIN", ACCENT_BLUE));
 
-        playerNameLabel = new JLabel("Nama Pahlawan (Role)");
+        playerAvatarPanel = new AvatarPanel(AvatarType.WARRIOR, 155, 138);
+
+        JPanel playerInfoBox = new JPanel(new GridLayout(3, 1, 4, 4));
+        playerInfoBox.setBackground(BG_PANEL);
+
+        playerNameLabel = new JLabel("Nama Pahlawan [Role]");
         playerNameLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         playerNameLabel.setForeground(TEXT_LIGHT);
 
@@ -548,16 +584,24 @@ public class SwingDisplay implements BattleDisplay {
         playerHpBar.setFont(new Font("SansSerif", Font.BOLD, 13));
         playerHpBar.setForeground(ACCENT_GREEN);
 
-        playerCard.add(playerNameLabel);
-        playerCard.add(playerStatsLabel);
-        playerCard.add(playerHpBar);
+        playerInfoBox.add(playerNameLabel);
+        playerInfoBox.add(playerStatsLabel);
+        playerInfoBox.add(playerHpBar);
 
-        // Panel Status Monster
-        JPanel enemyCard = new JPanel(new GridLayout(3, 1, 4, 4));
+        playerCard.add(playerAvatarPanel, BorderLayout.WEST);
+        playerCard.add(playerInfoBox, BorderLayout.CENTER);
+
+        // Kartu Monster Lawan
+        JPanel enemyCard = new JPanel(new BorderLayout(12, 8));
         enemyCard.setBackground(BG_PANEL);
-        enemyCard.setBorder( createTitledBorder("MONSTER PENJAGA KASTIL", ACCENT_RED) );
+        enemyCard.setBorder(createTitledBorder("MONSTER PENJAGA KASTIL", ACCENT_RED));
 
-        enemyNameLabel = new JLabel("Nama Monster (Monster)");
+        enemyAvatarPanel = new AvatarPanel(AvatarType.MONSTER, 155, 138);
+
+        JPanel enemyInfoBox = new JPanel(new GridLayout(3, 1, 4, 4));
+        enemyInfoBox.setBackground(BG_PANEL);
+
+        enemyNameLabel = new JLabel("Nama Monster [Monster]");
         enemyNameLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         enemyNameLabel.setForeground(TEXT_LIGHT);
 
@@ -570,9 +614,12 @@ public class SwingDisplay implements BattleDisplay {
         enemyHpBar.setFont(new Font("SansSerif", Font.BOLD, 13));
         enemyHpBar.setForeground(ACCENT_GREEN);
 
-        enemyCard.add(enemyNameLabel);
-        enemyCard.add(enemyStatsLabel);
-        enemyCard.add(enemyHpBar);
+        enemyInfoBox.add(enemyNameLabel);
+        enemyInfoBox.add(enemyStatsLabel);
+        enemyInfoBox.add(enemyHpBar);
+
+        enemyCard.add(enemyInfoBox, BorderLayout.CENTER);
+        enemyCard.add(enemyAvatarPanel, BorderLayout.EAST);
 
         combatantsPanel.add(playerCard);
         combatantsPanel.add(enemyCard);
@@ -595,7 +642,7 @@ public class SwingDisplay implements BattleDisplay {
         battleLogArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
         battleLogArea.setBackground(new Color(18, 21, 28));
         battleLogArea.setForeground(TEXT_LIGHT);
-        battleLogArea.setBorder(new EmptyBorder(12, 14, 12, 14));
+        battleLogArea.setBorder(new EmptyBorder(10, 14, 10, 14));
 
         JScrollPane scrollPane = new JScrollPane(battleLogArea);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(74, 85, 104), 1));
@@ -603,7 +650,7 @@ public class SwingDisplay implements BattleDisplay {
         logContainer.add(turnStatusBanner, BorderLayout.NORTH);
         logContainer.add(scrollPane, BorderLayout.CENTER);
 
-        // Bagian Bawah: Tombol Aksi Giliran & Tombol Main Ulang / Keluar (KF-05, KF-13)
+        // Bagian Bawah: Tombol Aksi Giliran dengan SkillIcon & Tombol Main Ulang / Keluar
         JPanel southContainer = new JPanel(new GridLayout(2, 1, 8, 8));
         southContainer.setBackground(BG_DARK);
 
@@ -611,9 +658,13 @@ public class SwingDisplay implements BattleDisplay {
         actionButtonsPanel.setBackground(BG_DARK);
 
         btnBasicAttack = createStyledButton("1. Serangan Biasa", ACCENT_BLUE, Color.WHITE);
+        btnBasicAttack.setIcon(new SkillIcon(IconType.BASIC_SWORD, 26));
+        btnBasicAttack.setIconTextGap(10);
         btnBasicAttack.addActionListener(e -> handlePlayerTurnAction(1));
 
         btnSpecialSkill = createStyledButton("2. Gunakan Skill Spesial", ACCENT_PURPLE, Color.WHITE);
+        btnSpecialSkill.setIcon(new SkillIcon(IconType.POWER_STRIKE, 26));
+        btnSpecialSkill.setIconTextGap(10);
         btnSpecialSkill.addActionListener(e -> handlePlayerTurnAction(2));
 
         actionButtonsPanel.add(btnBasicAttack);
@@ -623,9 +674,7 @@ public class SwingDisplay implements BattleDisplay {
         postBattlePanel.setBackground(BG_DARK);
 
         btnPlayAgain = createStyledButton("Main Ulang [KF-13]", ACCENT_GREEN, Color.WHITE);
-        btnPlayAgain.addActionListener(e -> {
-            cardLayout.show(mainContainer, CARD_CHARACTER_SELECT);
-        });
+        btnPlayAgain.addActionListener(e -> cardLayout.show(mainContainer, CARD_CHARACTER_SELECT));
 
         btnBackToMenu = createStyledButton("Menu Utama", ACCENT_GOLD, Color.BLACK);
         btnBackToMenu.addActionListener(e -> {
@@ -655,7 +704,7 @@ public class SwingDisplay implements BattleDisplay {
     }
 
     // =========================================================================
-    // LOGIKA INTERAKSI GUI <-> SERVICE
+    // LOGIKA INTERAKSI GUI <-> SERVICE & EFEK GRAFIK
     // =========================================================================
 
     private void initiateBattleFromSelection() {
@@ -677,7 +726,6 @@ public class SwingDisplay implements BattleDisplay {
                 currentPlayer = new Mage(heroName);
             }
         } catch (IllegalArgumentException ex) {
-            // KNF-03: Menangani masukan tidak valid dengan dialog tanpa menghentikan aplikasi
             JOptionPane.showMessageDialog(
                 frame,
                 ex.getMessage() + "\nSilakan masukkan nama pahlawan terlebih dahulu.",
@@ -692,26 +740,36 @@ public class SwingDisplay implements BattleDisplay {
         currentEnemy = Monster.createRandomMonster(diff, random);
         battleService.resetBattleStats();
 
+        // Set tipe grafik Avatar sesuai karakter yang dipilih (Warrior / Mage vs Monster)
+        playerAvatarPanel.setAvatarType(AvatarPanel.fromRoleName(currentPlayer.getRole()));
+        playerAvatarPanel.clearEffect();
+        playerAvatarPanel.setDefeated(false);
+        playerAvatarPanel.setCaptionText(currentPlayer.getRole().toUpperCase());
+
+        enemyAvatarPanel.setAvatarType(AvatarType.MONSTER);
+        enemyAvatarPanel.clearEffect();
+        enemyAvatarPanel.setDefeated(false);
+        enemyAvatarPanel.setCaptionText("MONSTER (" + diff.name() + ")");
+
         // Setup label dan bar HP awal
         playerNameLabel.setText(currentPlayer.getName() + " [" + currentPlayer.getRole() + "]");
         playerStatsLabel.setText(
             "Attack: " + currentPlayer.getAttack() + " | Skill: " + currentPlayer.getSkillName()
         );
-        enemyNameLabel.setText(currentEnemy.getName() + " [" + currentEnemy.getRole() + "]");
+        enemyNameLabel.setText(currentEnemy.getName());
         enemyStatsLabel.setText(
             "Attack: " + currentEnemy.getAttack() + " | Skill: " + currentEnemy.getSkillName()
-            + " | Kesulitan: " + diff.name()
         );
 
         showHpBar(currentPlayer);
         showHpBar(currentEnemy);
 
-        btnBasicAttack.setText(
-            "1. Serangan Biasa (" + currentPlayer.getAttack() + " Damage)"
-        );
-        btnSpecialSkill.setText(
-            "2. Skill Spesial: " + currentPlayer.getSkillName()
-        );
+        btnBasicAttack.setText("1. Serangan Biasa (" + currentPlayer.getAttack() + " Damage)");
+        btnBasicAttack.setIcon(new SkillIcon(IconType.BASIC_SWORD, 26));
+
+        btnSpecialSkill.setText("2. Skill Spesial: " + currentPlayer.getSkillName());
+        btnSpecialSkill.setIcon(SkillIcon.forSkillName(currentPlayer.getSkillName(), 26));
+
         btnBasicAttack.setEnabled(true);
         btnSpecialSkill.setEnabled(true);
         postBattlePanel.setVisible(false);
@@ -739,30 +797,42 @@ public class SwingDisplay implements BattleDisplay {
             return;
         }
 
-        // Nonaktifkan tombol sementara aksi diproses (KNF-03)
         btnBasicAttack.setEnabled(false);
         btnSpecialSkill.setEnabled(false);
 
-        // Giliran Pemain (KF-04, KF-05, KF-06, KF-07)
-        battleService.executePlayerAction(currentPlayer, currentEnemy, choice);
+        // 1. Giliran Pemain & Efek Grafik pada Avatar Monster
+        int playerDmg = battleService.executePlayerAction(currentPlayer, currentEnemy, choice);
+        ActionEffect playerVisualEffect;
+        if (choice == 1) {
+            playerVisualEffect = ActionEffect.BASIC_SLASH;
+        } else if ("Mage".equalsIgnoreCase(currentPlayer.getRole())) {
+            playerVisualEffect = ActionEffect.FIREBALL;
+        } else {
+            playerVisualEffect = ActionEffect.POWER_STRIKE;
+        }
+        enemyAvatarPanel.triggerEffect(playerVisualEffect, playerDmg);
 
-        // Cek apakah monster sudah kalah (KF-09)
         if (battleService.isBattleOver(currentPlayer, currentEnemy)) {
+            enemyAvatarPanel.setDefeated(true);
+            playerAvatarPanel.clearEffect();
             battleService.concludeBattle(currentPlayer, currentEnemy);
             return;
         }
 
-        // Giliran Monster otomatis dengan peluang 20% skill spesial (KF-08)
-        battleService.executeEnemyTurn(currentEnemy, currentPlayer);
+        // 2. Giliran Monster & Efek Grafik pada Avatar Pemain
+        int enemyDmg = battleService.executeEnemyTurn(currentEnemy, currentPlayer);
+        ActionEffect enemyVisualEffect = (enemyDmg > currentEnemy.getAttack())
+            ? ActionEffect.MONSTER_SMASH
+            : ActionEffect.BASIC_SLASH;
+        playerAvatarPanel.triggerEffect(enemyVisualEffect, enemyDmg);
         showMessage("----------------------------------------------------------------------");
 
-        // Cek apakah pemain kalah setelah serangan monster (KF-09)
         if (battleService.isBattleOver(currentPlayer, currentEnemy)) {
+            playerAvatarPanel.setDefeated(true);
             battleService.concludeBattle(currentPlayer, currentEnemy);
             return;
         }
 
-        // Lanjut ke giliran berikutnya
         btnBasicAttack.setEnabled(true);
         btnSpecialSkill.setEnabled(true);
         turnStatusBanner.setText(
@@ -873,7 +943,7 @@ public class SwingDisplay implements BattleDisplay {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(bgColor.darker(), 1),
-            new EmptyBorder(12, 16, 12, 16)
+            new EmptyBorder(10, 14, 10, 14)
         ));
         return btn;
     }

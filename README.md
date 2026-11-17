@@ -48,7 +48,9 @@ Selain aktor **Pemain**, terdapat aktor **Pengelola Permainan** yang dapat menye
         │   └── BattleService.java  # Service logika pertarungan bergiliran (KF-04 s.d. KF-10)
         ├── ui/
         │   ├── BattleDisplay.java  # Interface kontrak tampilan pertarungan
-        │   └── SwingDisplay.java   # Antarmuka GUI berbasis Java Swing (javax.swing)
+        │   ├── SwingDisplay.java   # Antarmuka GUI berbasis Java Swing (javax.swing)
+        │   ├── AvatarPanel.java    # Grafik vektor 2D karakter (Warrior, Mage, Monster) & efek skill
+        │   └── SkillIcon.java      # Ikon vektor 2D jurus spesial (implements javax.swing.Icon)
         └── test/
             ├── BattleServiceTest.java   # Pengujian otomatis BattleService & pilar PBO
             └── SettingsServiceTest.java # Pengujian otomatis SettingsService

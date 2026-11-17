@@ -24,7 +24,9 @@ src/rpg/
 │   └── MonsterSmash.java  # Implementasi Skill milik Monster
 ├── ui/                    # Lapisan Kontrak & Implementasi Antarmuka Pengguna (GUI)
 │   ├── BattleDisplay.java # «interface» kontrak tampilan pertarungan
-│   └── SwingDisplay.java  # Implementasi GUI menggunakan Java Swing (javax.swing)
+│   ├── SwingDisplay.java  # Implementasi GUI menggunakan Java Swing (javax.swing)
+│   ├── AvatarPanel.java   # Subkelas JPanel penggambaran grafik vektor karakter & efek skill (Graphics2D)
+│   └── SkillIcon.java     # Implementasi javax.swing.Icon untuk grafik vektor ikon skill pada tombol & kartu
 ├── service/               # Lapisan Logika Aplikasi / Use Case (Service Layer)
 │   ├── GameSettings.java  # Penyimpan state tingkat kesulitan
 │   ├── SettingsService.java # Layanan pengaturan kesulitan (Aktor: Pengelola Permainan)
@@ -179,6 +181,46 @@ Polimorfisme memungkinkan satu pemanggilan method yang sama melalui referensi be
    - `BattleService` menyimpan atribut `private final BattleDisplay display;`.
    - Saat aplikasi utama dijalankan, `display` berisi objek `SwingDisplay` yang memperbarui `JProgressBar` dan `JTextArea` pada jendela GUI Java Swing.
    - Saat pengujian otomatis (`BattleServiceTest`) dijalankan, `display` berisi objek `silentDisplay` (implementasi ringan `BattleDisplay`) sehingga pengujian berjalan dalam hitungan milidetik tanpa harus membuka jendela GUI.
+
+---
+
+### 2.5 Penerapan PBO pada Grafik Vektor Karakter & Skill (`AvatarPanel` & `SkillIcon`)
+
+Untuk menampilkan visual karakter (**Warrior**, **Mage**, **Monster**) serta efek grafis jurus (**Serangan Biasa**, **Power Strike**, **Fireball**, **Monster Smash**) tanpa bergantung pada berkas gambar eksternal (`.png`/`.jpg`) dan tanpa mengotori kelas domain `rpg.model` dengan pustaka GUI, proyek ini menerapkan **Procedural Vector Graphics (`java.awt.Graphics2D`)** di dalam paket `rpg.ui`:
+
+1. **Inheritance & Method Overriding pada [`AvatarPanel.java`](../src/rpg/ui/AvatarPanel.java)**
+   - `AvatarPanel` mewarisi kelas komponen standar Swing (`public class AvatarPanel extends JPanel`) dan meng-override method siklus hidup penggambaran Swing:
+     ```java
+     @Override
+     protected void paintComponent(Graphics g) {
+         super.paintComponent(g);
+         Graphics2D g2 = (Graphics2D) g.create();
+         // Menggambar panggung, avatar karakter (Warrior/Mage/Monster),
+         // efek visual jurus (Slash / Power Strike / Fireball / Smash),
+         // serta badge damage (-DMG HP) dan status TUMBANG (0 HP).
+     }
+     ```
+   - **Apa yang digambar secara prosedural?**
+     - **`WARRIOR` (`drawWarriorGraphic`)**: Jubah merah ksatria, zirah baja, helm baja berjambul merah, pedang besar (*broadsword*), dan perisai biru berlambang salib emas.
+     - **`MAGE` (`drawMageGraphic`)**: Aura lingkaran sihir ungu, jubah penyihir berornamen emas, topi kerucut (*wizard hat*), tongkat sihir kristal api, dan bola api melayang.
+     - **`MONSTER` (`drawMonsterGraphic`)**: Tubuh hijau kekar bersabuk tengkorak, tanduk runcing, mata merah menyala, taring tajam, dan gada berduri raksasa (*spiked club*).
+     - **Efek Serangan & Skill (`drawSkillEffectOverlay`)**: Menampilkan tebasan perak diagonal (`BASIC_SLASH`), tebasan silang X emas berkilau (`POWER_STRIKE`), ledakan bola api berlapis (`FIREBALL`), gelombang kejut merah (`MONSTER_SMASH`), serta badge `-DMG HP` di atas karakter target.
+
+2. **Interface Realization (Polymorphism) pada [`SkillIcon.java`](../src/rpg/ui/SkillIcon.java)**
+   - `SkillIcon` mengimplementasikan interface bawaan Java Swing `javax.swing.Icon` (`public class SkillIcon implements Icon`):
+     ```java
+     @Override
+     public void paintIcon(Component c, Graphics g, int x, int y) { ... }
+     @Override
+     public int getIconWidth() { return size; }
+     @Override
+     public int getIconHeight() { return size; }
+     ```
+   - Karena komponen Swing seperti `JButton` dan `JLabel` menerima parameter bertipe interface `Icon` (`button.setIcon(Icon)`), objek `SkillIcon` dapat langsung dipasang secara polimorfik pada tombol **1. Serangan Biasa**, tombol **2. Skill Spesial**, maupun badge informasi di kartu pemilihan karakter.
+
+3. **Separation of Concerns (SRP) tetap Terjaga**
+   - Kelas model (`Character`, `Warrior`, `Mage`, `Monster`) dan kelas skill (`Skill`, `PowerStrike`, `Fireball`, `MonsterSmash`) **sama sekali tidak mengimpor `java.awt.*` atau `javax.swing.*`**.
+   - Pemetaan dari data model ke representasi grafik dilakukan di lapisan UI (`AvatarPanel.fromRoleName(character.getRole())` dan `SkillIcon.forSkillName(character.getSkillName(), 26)`). Dengan demikian, pemisahan antara logika bisnis dan tampilan GUI tetap 100% murni sesuai arsitektur berlapis Bab 11 proposal.
 
 ---
 

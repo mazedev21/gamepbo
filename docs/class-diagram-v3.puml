@@ -89,12 +89,36 @@ package "rpg.ui" {
         - battleService : BattleService
         - currentPlayer : Character
         - currentEnemy : Character
+        - playerAvatarPanel : AvatarPanel
+        - enemyAvatarPanel : AvatarPanel
         + SwingDisplay(settingsService : SettingsService)
         + setBattleService(battleService : BattleService) : void
         + launchGui() : void
         + showMessage(message : String) : void
         + showHpBar(character : Character) : void
         + showSummary(turns : int, totalDamage : int, playerWon : boolean) : void
+    }
+
+    class AvatarPanel {
+        - avatarType : AvatarType
+        - activeEffect : ActionEffect
+        - lastDamageTaken : int
+        - defeated : boolean
+        + AvatarPanel(avatarType : AvatarType, width : int, height : int)
+        + triggerEffect(effect : ActionEffect, damage : int) : void
+        + clearEffect() : void
+        + setDefeated(defeated : boolean) : void
+        # paintComponent(g : Graphics) : void
+    }
+
+    class SkillIcon {
+        - type : IconType
+        - size : int
+        + SkillIcon(type : IconType, size : int)
+        + {static} forSkillName(skillName : String, size : int) : SkillIcon
+        + paintIcon(c : Component, g : Graphics, x : int, y : int) : void
+        + getIconWidth() : int
+        + getIconHeight() : int
     }
 }
 
@@ -158,6 +182,8 @@ SettingsService --> "1" GameSettings : mengelola >
 BattleService --> "1" BattleDisplay : menampilkan lewat >
 SwingDisplay --> "1" SettingsService : menggunakan >
 SwingDisplay --> "1" BattleService : memanggil >
+SwingDisplay *--> "2.." AvatarPanel : menampilkan avatar & efek >
+SwingDisplay ..> SkillIcon : memasang ikon skill >
 
 ' Relasi Dependensi
 Monster ..> Difficulty : membaca multiplier >

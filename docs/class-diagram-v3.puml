@@ -1,0 +1,173 @@
+@startuml class-diagram-v3
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+title Class Diagram v3 — "Hero's Regret: Rescue Gone Wrong" (Tim Expert Izin Lewat)
+
+package "rpg.model" {
+    enum Difficulty <<enumeration>> {
+        MUDAH
+        NORMAL
+        SULIT
+        - multiplier : double
+        - description : String
+        + getMultiplier() : double
+        + getDescription() : String
+    }
+
+    abstract class Character <<abstract>> {
+        - name : String
+        - maxHp : int
+        - attack : int
+        - skill : Skill
+        - hp : int
+        # Character(name : String, maxHp : int, attack : int, skill : Skill)
+        + takeDamage(dmg : int) : void
+        + basicAttack(target : Character) : int
+        + specialAttack(target : Character) : int
+        + isAlive() : boolean
+        + getName() : String
+        + getHp() : int
+        + getMaxHp() : int
+        + getAttack() : int
+        + getSkillName() : String
+        + getSkill() : Skill
+        + {abstract} getRole() : String
+    }
+
+    class Warrior {
+        + Warrior(name : String)
+        + getRole() : String
+    }
+
+    class Mage {
+        + Mage(name : String)
+        + getRole() : String
+    }
+
+    class Monster {
+        + Monster(name : String, diff : Difficulty)
+        + Monster(name : String, baseHp : int, baseAttack : int, diff : Difficulty)
+        + {static} createRandomMonster(diff : Difficulty, random : Random) : Monster
+        + getRole() : String
+    }
+}
+
+package "rpg.skill" {
+    interface Skill <<interface>> {
+        + getName() : String
+        + use(user : Character, target : Character) : int
+    }
+
+    class PowerStrike {
+        + getName() : String
+        + use(user : Character, target : Character) : int
+    }
+
+    class Fireball {
+        + getName() : String
+        + use(user : Character, target : Character) : int
+    }
+
+    class MonsterSmash {
+        + getName() : String
+        + use(user : Character, target : Character) : int
+    }
+}
+
+package "rpg.ui" {
+    interface BattleDisplay <<interface>> {
+        + showMessage(message : String) : void
+        + showHpBar(character : Character) : void
+        + showSummary(turns : int, totalDamage : int, playerWon : boolean) : void
+    }
+
+    class SwingDisplay {
+        - settingsService : SettingsService
+        - battleService : BattleService
+        - currentPlayer : Character
+        - currentEnemy : Character
+        + SwingDisplay(settingsService : SettingsService)
+        + setBattleService(battleService : BattleService) : void
+        + launchGui() : void
+        + showMessage(message : String) : void
+        + showHpBar(character : Character) : void
+        + showSummary(turns : int, totalDamage : int, playerWon : boolean) : void
+    }
+}
+
+package "rpg.service" {
+    class GameSettings {
+        - difficulty : Difficulty
+        + GameSettings()
+        + getDifficulty() : Difficulty
+        + setDifficulty(difficulty : Difficulty) : void
+        + resetToDefault() : void
+        + getMultiplier() : double
+    }
+
+    class SettingsService {
+        - settings : GameSettings
+        + SettingsService(settings : GameSettings)
+        + changeDifficulty(newDifficulty : Difficulty) : void
+        + resetDifficulty() : void
+        + getCurrentDifficulty() : Difficulty
+        + getCurrentMultiplier() : double
+    }
+
+    class BattleService {
+        - display : BattleDisplay
+        - random : Random
+        - turns : int
+        - totalPlayerDamage : int
+        + BattleService(display : BattleDisplay)
+        + executePlayerAction(player : Character, enemy : Character, choice : int) : int
+        + executeEnemyTurn(enemy : Character, player : Character) : int
+        + isBattleOver(player : Character, enemy : Character) : boolean
+        + concludeBattle(player : Character, enemy : Character) : void
+        + resetBattleStats() : void
+        + getTurns() : int
+        + getTotalPlayerDamage() : int
+    }
+}
+
+package "rpg" {
+    class App {
+        + {static} main(args : String[]) : void
+        + {static} runConsoleDemo() : void
+    }
+}
+
+' Relasi Pewarisan (Inheritance)
+Character <|-- Warrior
+Character <|-- Mage
+Character <|-- Monster
+
+' Relasi Realisasi (Interface Implementation)
+Skill <|.. PowerStrike
+Skill <|.. Fireball
+Skill <|.. MonsterSmash
+BattleDisplay <|.. SwingDisplay
+
+' Relasi Agregasi & Asosiasi
+Character o--> "1" Skill : menggunakan >
+GameSettings --> "1" Difficulty : menyimpan >
+SettingsService --> "1" GameSettings : mengelola >
+BattleService --> "1" BattleDisplay : menampilkan lewat >
+SwingDisplay --> "1" SettingsService : menggunakan >
+SwingDisplay --> "1" BattleService : memanggil >
+
+' Relasi Dependensi
+Monster ..> Difficulty : membaca multiplier >
+Warrior ..> PowerStrike : menginstansiasi >
+Mage ..> Fireball : menginstansiasi >
+Monster ..> MonsterSmash : menginstansiasi >
+BattleService ..> Character : memproses giliran >
+App ..> GameSettings : merakit >
+App ..> SettingsService : merakit >
+App ..> BattleService : merakit >
+App ..> SwingDisplay : merakit >
+
+@enduml

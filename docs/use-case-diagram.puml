@@ -1,0 +1,33 @@
+@startuml use-case-diagram
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Pemain" as Player
+actor "Pengelola Permainan" as Admin
+
+rectangle "Game RPG Turn-Based GUI (Hero's Regret: Rescue Gone Wrong)" {
+    usecase "Mulai permainan baru" as UC1
+    usecase "Pilih karakter (Warrior / Mage)" as UC2
+    usecase "Lakukan serangan biasa" as UC3
+    usecase "Gunakan skill spesial" as UC4
+    usecase "Lihat status HP (JProgressBar)" as UC5
+    usecase "Lihat narasi akhir dan ringkasan" as UC6
+    usecase "Main ulang / keluar" as UC7
+    usecase "Atur tingkat kesulitan (Mudah/Normal/Sulit)" as UC8
+    usecase "Kembalikan pengaturan bawaan (Normal)" as UC9
+}
+
+Player --> UC1
+Player --> UC2
+Player --> UC3
+Player --> UC4
+Player --> UC6
+Player --> UC7
+
+UC3 ..> UC5 : <<include>>
+UC4 ..> UC5 : <<include>>
+
+Admin --> UC8
+Admin --> UC9
+
+@enduml

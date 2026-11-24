@@ -31,6 +31,8 @@ import rpg.skill.Skill;
  * </ul>
  */
 public abstract class Character {
+    public static final int MAX_NAME_LENGTH = 24;
+
     private final String name;
     private final int maxHp;
     private final int attack;
@@ -41,13 +43,19 @@ public abstract class Character {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Nama karakter wajib diisi");
         }
+        String trimmedName = name.trim();
+        if (trimmedName.length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException(
+                "Nama karakter maksimal " + MAX_NAME_LENGTH + " karakter"
+            );
+        }
         if (maxHp <= 0 || attack <= 0) {
             throw new IllegalArgumentException("HP maksimum dan attack harus > 0");
         }
         if (skill == null) {
             throw new IllegalArgumentException("Skill tidak boleh null");
         }
-        this.name = name.trim();
+        this.name = trimmedName;
         this.maxHp = maxHp;
         this.hp = maxHp;
         this.attack = attack;

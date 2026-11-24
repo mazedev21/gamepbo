@@ -9,6 +9,8 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.Random;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -25,8 +27,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import rpg.model.Character;
 import rpg.model.Difficulty;
 import rpg.model.Mage;
@@ -50,6 +57,8 @@ public class SwingDisplay implements BattleDisplay {
     private static final String CARD_SETTINGS = "SETTINGS";
     private static final String CARD_CHARACTER_SELECT = "CHARACTER_SELECT";
     private static final String CARD_BATTLE = "BATTLE";
+    private static final String SOUTH_CARD_ACTIONS = "ACTIONS";
+    private static final String SOUTH_CARD_POST_BATTLE = "POST_BATTLE";
 
     private static final Color BG_DARK = new Color(24, 28, 38);
     private static final Color BG_PANEL = new Color(36, 42, 56);
@@ -84,10 +93,14 @@ public class SwingDisplay implements BattleDisplay {
     private JTextField heroNameField;
     private JRadioButton rbWarrior;
     private JRadioButton rbMage;
+    private JPanel warriorRoleCard;
+    private JPanel mageRoleCard;
 
     // Komponen Pertarungan
     private Character currentPlayer;
     private Character currentEnemy;
+    private Timer turnDelayTimer;
+    private Timer effectClearTimer;
 
     private AvatarPanel playerAvatarPanel;
     private JLabel playerNameLabel;
@@ -107,6 +120,8 @@ public class SwingDisplay implements BattleDisplay {
     private JButton btnBackToMenu;
     private JButton btnExitAfterBattle;
     private JPanel postBattlePanel;
+    private JPanel southButtonsContainer;
+    private CardLayout southButtonsLayout;
 
     public SwingDisplay(SettingsService settingsService) {
         if (settingsService == null) {
@@ -415,8 +430,12 @@ public class SwingDisplay implements BattleDisplay {
 
         heroNameField = new JTextField("Sir Arthur", 22);
         heroNameField.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        applyMaxLengthFilter(heroNameField, Character.MAX_NAME_LENGTH);
+        heroNameField.addActionListener(e -> initiateBattleFromSelection());
 
-        JLabel nameHint = new JLabel("(Wajib diisi — divalidasi oleh konstruktor Character)");
+        JLabel nameHint = new JLabel(
+            "(Wajib diisi, maks. " + Character.MAX_NAME_LENGTH + " karakter — divalidasi oleh Character)"
+        );
         nameHint.setFont(new Font("SansSerif", Font.ITALIC, 12));
         nameHint.setForeground(TEXT_MUTED);
 
@@ -434,7 +453,7 @@ public class SwingDisplay implements BattleDisplay {
         roleGroup.add(rbWarrior);
         roleGroup.add(rbMage);
 
-        JPanel warriorCard = buildRoleCard(
+        warriorRoleCard = buildRoleCard(
             "WARRIOR (Ksatria Pedang)",
             ACCENT_BLUE,
             AvatarType.WARRIOR,
@@ -447,7 +466,7 @@ public class SwingDisplay implements BattleDisplay {
             rbWarrior
         );
 
-        JPanel mageCard = buildRoleCard(
+        mageRoleCard = buildRoleCard(
             "MAGE (Penyihir Elemen)",
             ACCENT_PURPLE,
             AvatarType.MAGE,
@@ -460,8 +479,12 @@ public class SwingDisplay implements BattleDisplay {
             rbMage
         );
 
-        cardsGrid.add(warriorCard);
-        cardsGrid.add(mageCard);
+        rbWarrior.addActionListener(e -> updateRoleCardSelectionBorders());
+        rbMage.addActionListener(e -> updateRoleCardSelectionBorders());
+        updateRoleCardSelectionBorders();
+
+        cardsGrid.add(warriorRoleCard);
+        cardsGrid.add(mageRoleCard);
 
         centerPanel.add(nameInputPanel, BorderLayout.NORTH);
         centerPanel.add(cardsGrid, BorderLayout.CENTER);
@@ -545,7 +568,83 @@ public class SwingDisplay implements BattleDisplay {
         card.add(title, BorderLayout.NORTH);
         card.add(body, BorderLayout.CENTER);
         card.add(radioBtn, BorderLayout.SOUTH);
+
+        MouseAdapter selectCardListener = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (!radioBtn.isSelected()) {
+                    radioBtn.setSelected(true);
+                }
+                updateRoleCardSelectionBorders();
+            }
+        };
+        Cursor handCursor = new Cursor(Cursor.HAND_CURSOR);
+        Component[] clickableParts = {
+            card, title, body, avatarPreview, infoBox, skillBadge, desc, radioBtn
+        };
+        for (Component part : clickableParts) {
+            part.setCursor(handCursor);
+            part.addMouseListener(selectCardListener);
+        }
+
         return card;
+    }
+
+    private void updateRoleCardSelectionBorders() {
+        applyRoleCardBorder(warriorRoleCard, ACCENT_BLUE, rbWarrior != null && rbWarrior.isSelected());
+        applyRoleCardBorder(mageRoleCard, ACCENT_PURPLE, rbMage != null && rbMage.isSelected());
+    }
+
+    private void applyRoleCardBorder(JPanel card, Color accentColor, boolean selected) {
+        if (card == null) {
+            return;
+        }
+        if (selected) {
+            card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(accentColor, 4),
+                new EmptyBorder(12, 14, 12, 14)
+            ));
+        } else {
+            card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(74, 85, 104), 2),
+                new EmptyBorder(14, 16, 14, 16)
+            ));
+        }
+    }
+
+    private void applyMaxLengthFilter(JTextField field, int maxLength) {
+        if (field.getDocument() instanceof AbstractDocument) {
+            ((AbstractDocument) field.getDocument()).setDocumentFilter(new DocumentFilter() {
+                @Override
+                public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr)
+                    throws BadLocationException {
+                    if (string == null) {
+                        return;
+                    }
+                    int available = maxLength - fb.getDocument().getLength();
+                    if (available <= 0) {
+                        return;
+                    }
+                    String text = string.length() > available ? string.substring(0, available) : string;
+                    super.insertString(fb, offset, text, attr);
+                }
+
+                @Override
+                public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
+                    throws BadLocationException {
+                    if (text == null) {
+                        super.replace(fb, offset, length, null, attrs);
+                        return;
+                    }
+                    int available = maxLength - (fb.getDocument().getLength() - length);
+                    if (available <= 0) {
+                        return;
+                    }
+                    String truncated = text.length() > available ? text.substring(0, available) : text;
+                    super.replace(fb, offset, length, truncated, attrs);
+                }
+            });
+        }
     }
 
     // =========================================================================
@@ -651,8 +750,9 @@ public class SwingDisplay implements BattleDisplay {
         logContainer.add(scrollPane, BorderLayout.CENTER);
 
         // Bagian Bawah: Tombol Aksi Giliran dengan SkillIcon & Tombol Main Ulang / Keluar
-        JPanel southContainer = new JPanel(new GridLayout(2, 1, 8, 8));
-        southContainer.setBackground(BG_DARK);
+        southButtonsLayout = new CardLayout();
+        southButtonsContainer = new JPanel(southButtonsLayout);
+        southButtonsContainer.setBackground(BG_DARK);
 
         JPanel actionButtonsPanel = new JPanel(new GridLayout(1, 2, 16, 0));
         actionButtonsPanel.setBackground(BG_DARK);
@@ -660,11 +760,13 @@ public class SwingDisplay implements BattleDisplay {
         btnBasicAttack = createStyledButton("1. Serangan Biasa", ACCENT_BLUE, Color.WHITE);
         btnBasicAttack.setIcon(new SkillIcon(IconType.BASIC_SWORD, 26));
         btnBasicAttack.setIconTextGap(10);
+        btnBasicAttack.setToolTipText("Serangan standar sebesar nilai Attack dasar karakter.");
         btnBasicAttack.addActionListener(e -> handlePlayerTurnAction(1));
 
         btnSpecialSkill = createStyledButton("2. Gunakan Skill Spesial", ACCENT_PURPLE, Color.WHITE);
         btnSpecialSkill.setIcon(new SkillIcon(IconType.POWER_STRIKE, 26));
         btnSpecialSkill.setIconTextGap(10);
+        btnSpecialSkill.setToolTipText("Jurus spesial unik sesuai kelas karakter.");
         btnSpecialSkill.addActionListener(e -> handlePlayerTurnAction(2));
 
         actionButtonsPanel.add(btnBasicAttack);
@@ -691,14 +793,14 @@ public class SwingDisplay implements BattleDisplay {
         postBattlePanel.add(btnPlayAgain);
         postBattlePanel.add(btnBackToMenu);
         postBattlePanel.add(btnExitAfterBattle);
-        postBattlePanel.setVisible(false);
 
-        southContainer.add(actionButtonsPanel);
-        southContainer.add(postBattlePanel);
+        southButtonsContainer.add(actionButtonsPanel, SOUTH_CARD_ACTIONS);
+        southButtonsContainer.add(postBattlePanel, SOUTH_CARD_POST_BATTLE);
+        southButtonsLayout.show(southButtonsContainer, SOUTH_CARD_ACTIONS);
 
         panel.add(combatantsPanel, BorderLayout.NORTH);
         panel.add(logContainer, BorderLayout.CENTER);
-        panel.add(southContainer, BorderLayout.SOUTH);
+        panel.add(southButtonsContainer, BorderLayout.SOUTH);
 
         return panel;
     }
@@ -736,6 +838,8 @@ public class SwingDisplay implements BattleDisplay {
             return;
         }
 
+        stopPendingTimers();
+
         Difficulty diff = settingsService.getCurrentDifficulty();
         currentEnemy = Monster.createRandomMonster(diff, random);
         battleService.resetBattleStats();
@@ -766,13 +870,17 @@ public class SwingDisplay implements BattleDisplay {
 
         btnBasicAttack.setText("1. Serangan Biasa (" + currentPlayer.getAttack() + " Damage)");
         btnBasicAttack.setIcon(new SkillIcon(IconType.BASIC_SWORD, 26));
+        btnBasicAttack.setToolTipText(
+            "Serangan standar sebesar Attack (" + currentPlayer.getAttack() + " Damage)"
+        );
 
         btnSpecialSkill.setText("2. Skill Spesial: " + currentPlayer.getSkillName());
         btnSpecialSkill.setIcon(SkillIcon.forSkillName(currentPlayer.getSkillName(), 26));
+        btnSpecialSkill.setToolTipText(buildSpecialSkillTooltip(currentPlayer));
 
         btnBasicAttack.setEnabled(true);
         btnSpecialSkill.setEnabled(true);
-        postBattlePanel.setVisible(false);
+        southButtonsLayout.show(southButtonsContainer, SOUTH_CARD_ACTIONS);
 
         battleLogArea.setText("");
         showMessage("======================================================================");
@@ -797,8 +905,10 @@ public class SwingDisplay implements BattleDisplay {
             return;
         }
 
+        stopPendingTimers();
         btnBasicAttack.setEnabled(false);
         btnSpecialSkill.setEnabled(false);
+        playerAvatarPanel.clearEffect();
 
         // 1. Giliran Pemain & Efek Grafik pada Avatar Monster
         int playerDmg = battleService.executePlayerAction(currentPlayer, currentEnemy, choice);
@@ -814,30 +924,71 @@ public class SwingDisplay implements BattleDisplay {
 
         if (battleService.isBattleOver(currentPlayer, currentEnemy)) {
             enemyAvatarPanel.setDefeated(true);
-            playerAvatarPanel.clearEffect();
             battleService.concludeBattle(currentPlayer, currentEnemy);
+            scheduleEffectClear(enemyAvatarPanel, 450);
             return;
         }
 
-        // 2. Giliran Monster & Efek Grafik pada Avatar Pemain
-        int enemyDmg = battleService.executeEnemyTurn(currentEnemy, currentPlayer);
-        ActionEffect enemyVisualEffect = (enemyDmg > currentEnemy.getAttack())
-            ? ActionEffect.MONSTER_SMASH
-            : ActionEffect.BASIC_SLASH;
-        playerAvatarPanel.triggerEffect(enemyVisualEffect, enemyDmg);
-        showMessage("----------------------------------------------------------------------");
+        turnStatusBanner.setText(currentEnemy.getName() + " bersiap membalas serangan...");
 
-        if (battleService.isBattleOver(currentPlayer, currentEnemy)) {
-            playerAvatarPanel.setDefeated(true);
-            battleService.concludeBattle(currentPlayer, currentEnemy);
-            return;
+        // 2. Jeda 450 ms sebelum Monster membalas agar efek serangan pemain terlihat jelas
+        turnDelayTimer = new Timer(450, e -> {
+            if (currentPlayer == null || currentEnemy == null || battleService.isBattleOver(currentPlayer, currentEnemy)) {
+                return;
+            }
+            enemyAvatarPanel.clearEffect();
+
+            int enemyDmg = battleService.executeEnemyTurn(currentEnemy, currentPlayer);
+            ActionEffect enemyVisualEffect = (enemyDmg > currentEnemy.getAttack())
+                ? ActionEffect.MONSTER_SMASH
+                : ActionEffect.BASIC_SLASH;
+            playerAvatarPanel.triggerEffect(enemyVisualEffect, enemyDmg);
+            showMessage("----------------------------------------------------------------------");
+
+            if (battleService.isBattleOver(currentPlayer, currentEnemy)) {
+                playerAvatarPanel.setDefeated(true);
+                battleService.concludeBattle(currentPlayer, currentEnemy);
+            } else {
+                btnBasicAttack.setEnabled(true);
+                btnSpecialSkill.setEnabled(true);
+                turnStatusBanner.setText(
+                    "Giliran ke-" + (battleService.getTurns() + 1) + ": Pilih aksi untuk " + currentPlayer.getName() + "!"
+                );
+            }
+            scheduleEffectClear(playerAvatarPanel, 450);
+        });
+        turnDelayTimer.setRepeats(false);
+        turnDelayTimer.start();
+    }
+
+    private void scheduleEffectClear(AvatarPanel panel, int delayMs) {
+        if (effectClearTimer != null && effectClearTimer.isRunning()) {
+            effectClearTimer.stop();
         }
+        effectClearTimer = new Timer(delayMs, e -> panel.clearEffect());
+        effectClearTimer.setRepeats(false);
+        effectClearTimer.start();
+    }
 
-        btnBasicAttack.setEnabled(true);
-        btnSpecialSkill.setEnabled(true);
-        turnStatusBanner.setText(
-            "Giliran ke-" + (battleService.getTurns() + 1) + ": Pilih aksi untuk " + currentPlayer.getName() + "!"
-        );
+    private void stopPendingTimers() {
+        if (turnDelayTimer != null && turnDelayTimer.isRunning()) {
+            turnDelayTimer.stop();
+        }
+        if (effectClearTimer != null && effectClearTimer.isRunning()) {
+            effectClearTimer.stop();
+        }
+    }
+
+    private String buildSpecialSkillTooltip(Character hero) {
+        if ("Mage".equalsIgnoreCase(hero.getRole())) {
+            int dmg = Math.max(0, hero.getAttack() * 2 - 6);
+            return hero.getSkillName() + ": (2 x Attack) - 6 = " + dmg + " Damage";
+        }
+        if ("Warrior".equalsIgnoreCase(hero.getRole())) {
+            int dmg = hero.getAttack() * 2;
+            return hero.getSkillName() + ": 2 x Attack = " + dmg + " Damage";
+        }
+        return hero.getSkillName() + " (Skill Spesial)";
     }
 
     // =========================================================================
@@ -880,7 +1031,7 @@ public class SwingDisplay implements BattleDisplay {
     public void showSummary(int turns, int totalDamage, boolean playerWon) {
         btnBasicAttack.setEnabled(false);
         btnSpecialSkill.setEnabled(false);
-        postBattlePanel.setVisible(true);
+        southButtonsLayout.show(southButtonsContainer, SOUTH_CARD_POST_BATTLE);
 
         String endingStory;
         if (playerWon) {
